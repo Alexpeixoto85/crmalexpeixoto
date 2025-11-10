@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -3278,7 +3276,7 @@ if (button.dataset.panel === 'financial') {
             }
 
             db.usefulLinks.forEach(link => {
-                const shortUrl = link.shortUrl || link.url; // Fallback para links antigos
+                const shortUrl = link.url; // Fallback para links antigos
                 tbody.innerHTML += `
                     <tr>
                         <td>${link.title}</td>
@@ -5659,7 +5657,7 @@ if (action === 'edit') {
                     }
                     
                     // Gera um "encurtador" local
-                    linkData.shortUrl = `https://crm.pro/#${linkData.id}`;
+                    linkData.shortUrl = linkData.url;
                     
                     if (currentEditingId) {
                         const index = db.usefulLinks.findIndex(l => l.id == currentEditingId);
