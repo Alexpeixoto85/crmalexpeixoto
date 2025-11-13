@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -2006,13 +2007,12 @@ if (button.dataset.panel === 'financial') {
                 `<option value="${stage.id}" ${client.stageId == stage.id ? 'selected' : ''}>${stage.name}</option>`
             ).join('');
 
-            // =========================================================
-            // INÍCIO: ATUALIZAÇÃO DO FORMULÁRIO DE CLIENTE
-            // =========================================================
-            // Agora pegamos todos os Empreendimentos (Imóveis)
-            const propertyOptions = db.properties.map(prop =>
-                `<option value="${prop.id}" ${client.propertyId == prop.id ? 'selected' : ''}>${prop.name}</option>`
-            ).join('');
+            // Pega todos os Empreendimentos
+            const propertyOptions = db.properties.map(prop => {
+                // Adiciona ícone visual no dropdown se for pré-lançamento
+                const prefix = prop.status === 'pre-lancamento' ? '⏳ ' : '';
+                return `<option value="${prop.id}" ${client.propertyId == prop.id ? 'selected' : ''}>${prefix}${prop.name}</option>`
+            }).join('');
             
             const leadSources = ["imobiliária", "plantão", "construtora", "patrocinado", "ação de rua", "indicação"];
             const sourceOptions = leadSources.map(source => 
@@ -2043,6 +2043,15 @@ if (button.dataset.panel === 'financial') {
 
                     <div class="form-group full-width" style="background-color: #f8f9fa; padding: 1rem; border-radius: 5px;">
                         <label style="font-size: 1.1rem; color: var(--secondary-color); margin-bottom: 1rem; display: block;">Imóvel de Interesse</label>
+                        
+                        <div style="background-color: #fff3cd; padding: 10px; border-radius: 5px; border-left: 4px solid #ffc107; margin-bottom: 15px;">
+                            <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-bottom: 0;">
+                                <input type="checkbox" id="client-waiting-list" ${client.waitingList ? 'checked' : ''} style="width: auto; flex-grow: 0;">
+                                <label for="client-waiting-list" style="margin-bottom: 0; font-weight: bold; color: #856404;">Colocar em Lista de Espera (Pré-lançamento)</label>
+                            </div>
+                            <small style="display:block; margin-top:5px; color: #856404;">Marque se o imóvel é um Pré-lançamento. Você será avisado quando virar Lançamento.</small>
+                        </div>
+
                         <div class="form-grid" style="grid-template-columns: 1fr 1fr;">
                             <div class="form-group">
                                 <label for="client-propertyId">1. Empreendimento</label>
@@ -2058,7 +2067,6 @@ if (button.dataset.panel === 'financial') {
                     </div>
                     
                     <input type="hidden" id="client-property-value" value="0">
-
 
                     <div class="form-group full-width" style="background-color: #f8f9fa; padding: 1rem; border-radius: 5px; margin-top: 1rem;">
                         <label style="font-size: 1.1rem; color: var(--secondary-color); margin-bottom: 1rem; display: block;">Dados do Cônjuge (Opcional)</label>
@@ -2092,9 +2100,6 @@ if (button.dataset.panel === 'financial') {
                     </div>
                 </div>
             `;
-            // =========================================================
-            // FIM: ATUALIZAÇÃO DO FORMULÁRIO DE CLIENTE
-            // =========================================================
         };
     
         document.getElementById('add-client-btn').addEventListener('click', () => {
@@ -2341,6 +2346,42 @@ if (button.dataset.panel === 'financial') {
         // =========================================================
         // INÍCIO: FORMULÁRIO DE IMÓVEL TOTALMENTE REFEITO
         // =========================================================
+        
+
+        const renderVariationList = () => {
+            const container = document.getElementById('variation-list-container');
+            if (!container) return;
+            
+            container.innerHTML = ''; // Limpa a lista
+            
+            if (tempPropertyVariations.length === 0) {
+                container.innerHTML = '<p style="text-align:center; opacity: 0.7;">Nenhuma variação cadastrada para este empreendimento.</p>';
+            }
+
+            tempPropertyVariations.forEach((variation, index) => {
+                const finalPrice = variation.listPrice - (variation.discount || 0);
+                container.innerHTML += `
+                    <div class="variation-item" data-index="${index}">
+                        <div class="variation-item-header">
+                            <span>${variation.name} (${formatCurrency(finalPrice)})</span>
+                            <div class="action-buttons">
+                                <button title="Editar Variação" data-action="edit-variation"><i class="fas fa-edit"></i></button>
+                                <button title="Excluir Variação" data-action="delete-variation"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <div class="variation-item-body">
+                            <p style="font-size: 0.9rem; line-height: 1.5;">
+                                <strong>Sinal:</strong> ${formatCurrency(variation.sinal || 0)} | 
+                                <strong>Entrada:</strong> ${variation.entradaParcelas || 0}x de ${formatCurrency(variation.entradaValor || 0)} | 
+                                <strong>Interc:</strong> ${variation.intercaladasParcelas || 0}x de ${formatCurrency(variation.intercaladaValor || 0)} | 
+                                <strong>Chaves:</strong> ${formatCurrency(variation.chaves || 0)}
+                            </p>
+                        </div>
+                    </div>
+                `;
+            });
+        };
+
         const getPropertyFormHtml = (prop = {}) => {
             // 1. Configura as imagens (como antes)
             tempPropertyImages = prop.images ? [...prop.images] : [];
@@ -2363,6 +2404,16 @@ if (button.dataset.panel === 'financial') {
                 <div class="form-section-title">Dados do Empreendimento</div>
                 <div class="form-grid">
                     <div class="form-group"><label for="prop-name">Nome do Empreendimento</label><input type="text" id="prop-name" value="${prop.name || ''}"></div>
+                    
+                    <div class="form-group">
+                        <label for="prop-status">Status da Obra</label>
+                        <select id="prop-status" style="font-weight: bold; color: var(--secondary-color);">
+                            <option value="pronto" ${prop.status === 'pronto' ? 'selected' : ''}>Pronto para Morar</option>
+                            <option value="lancamento" ${prop.status === 'lancamento' ? 'selected' : ''}>🚀 Lançamento</option>
+                            <option value="pre-lancamento" ${prop.status === 'pre-lancamento' ? 'selected' : ''}>⏳ Pré-Lançamento</option>
+                        </select>
+                    </div>
+
                     <div class="form-group"><label for="prop-location">Localização</label><input type="text" id="prop-location" value="${prop.location || ''}"></div>
                     <div class="form-group"><label for="prop-link">Link (Tour Virtual, Site)</label><input type="url" id="prop-link" value="${prop.link || ''}"></div>
                     <div class="form-group full-width"><label for="prop-video-link">Link do Vídeo (YouTube, Vimeo)</label>
@@ -2434,40 +2485,6 @@ if (button.dataset.panel === 'financial') {
                     </div>
                 </div>
             `;
-        };
-
-        const renderVariationList = () => {
-            const container = document.getElementById('variation-list-container');
-            if (!container) return;
-            
-            container.innerHTML = ''; // Limpa a lista
-            
-            if (tempPropertyVariations.length === 0) {
-                container.innerHTML = '<p style="text-align:center; opacity: 0.7;">Nenhuma variação cadastrada para este empreendimento.</p>';
-            }
-
-            tempPropertyVariations.forEach((variation, index) => {
-                const finalPrice = variation.listPrice - (variation.discount || 0);
-                container.innerHTML += `
-                    <div class="variation-item" data-index="${index}">
-                        <div class="variation-item-header">
-                            <span>${variation.name} (${formatCurrency(finalPrice)})</span>
-                            <div class="action-buttons">
-                                <button title="Editar Variação" data-action="edit-variation"><i class="fas fa-edit"></i></button>
-                                <button title="Excluir Variação" data-action="delete-variation"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </div>
-                        <div class="variation-item-body">
-                            <p style="font-size: 0.9rem; line-height: 1.5;">
-                                <strong>Sinal:</strong> ${formatCurrency(variation.sinal || 0)} | 
-                                <strong>Entrada:</strong> ${variation.entradaParcelas || 0}x de ${formatCurrency(variation.entradaValor || 0)} | 
-                                <strong>Interc:</strong> ${variation.intercaladasParcelas || 0}x de ${formatCurrency(variation.intercaladaValor || 0)} | 
-                                <strong>Chaves:</strong> ${formatCurrency(variation.chaves || 0)}
-                            </p>
-                        </div>
-                    </div>
-                `;
-            });
         };
 
         const handleVariationManagerClick = (e) => {
@@ -5308,9 +5325,50 @@ if (action === 'edit') {
         // ==========================================
         // DASHBOARD
         // ==========================================
+        // Função auxiliar nova para buscar alertas de lista de espera
+        const getWaitingListAlertsHtml = () => {
+            const alerts = [];
+            
+            db.clients.forEach(client => {
+                // Se o cliente está na lista de espera E tem um imóvel selecionado
+                if (client.waitingList && client.propertyId) {
+                    const prop = db.properties.find(p => p.id == client.propertyId);
+                    
+                    // Se o imóvel existe e o status AGORA é 'lancamento'
+                    if (prop && prop.status === 'lancamento') {
+                        alerts.push({
+                            clientName: client.name,
+                            propName: prop.name,
+                            clientId: client.id,
+                            phone: client.phone
+                        });
+                    }
+                }
+            });
+
+            if (alerts.length === 0) return '<li>Nenhum cliente na lista de espera de imóveis lançados.</li>';
+
+            return alerts.map(alert => `
+                <li class="dashboard-event-item" style="border-left: 4px solid #28a745; padding-left: 10px;">
+                    <strong>🚀 OPORTUNIDADE:</strong> ${alert.propName} virou Lançamento!
+                    <br>Avise <strong>${alert.clientName}</strong> agora.
+                    <br><small>
+                        <a href="https://wa.me/${(alert.phone || '').replace(/\D/g, '')}?text=Olá ${alert.clientName.split(' ')[0]}! Tenho uma ótima notícia: O ${alert.propName} acabou de ser lançado oficialmente!" target="_blank" style="color: #25D366; text-decoration: none; font-weight: bold;">
+                        <i class="fab fa-whatsapp"></i> Enviar Notícia
+                        </a>
+                         | <span class="btn-link" onclick="document.querySelector('.nav-btn[data-panel=\\'clients\\']').click(); setTimeout(() => { document.querySelector('button[data-action=\\'edit\\'][data-id=\\'${alert.clientId}\\']').click(); }, 500);" style="cursor:pointer;">Editar Cliente (remover da lista)</span>
+                    </small>
+                </li>
+            `).join('');
+        };
+
         const renderDashboard = () => {
             const container = document.getElementById('dashboard-content');
             container.innerHTML = ''; // Limpa o dashboard
+            
+            // NOVO CARD: Alertas de Lançamento (Lista de Espera)
+            // Colocamos ele em PRIMEIRO lugar para dar destaque
+            container.innerHTML += getDashboardCardHtml('Lista de Espera (Lançamentos Ativos)', 'fas fa-bullhorn', getWaitingListAlertsHtml());
 
             // 1. Próximos Eventos
             container.innerHTML += getDashboardCardHtml('Proximos Compromissos', 'fas fa-calendar-check', getUpcomingEventsHtml());
@@ -5548,6 +5606,7 @@ if (action === 'edit') {
                         cpf: document.getElementById('client-cpf').value,
                         birthdate: document.getElementById('client-birthdate').value,
                         income: parseFloat(document.getElementById('client-income').value) || 0,
+                        waitingList: document.getElementById('client-waiting-list').checked, // <--- ADICIONE ESSA LINHA
                         hasFormalWork: document.getElementById('client-formal-work').checked,
                         alreadyOwnsProperty: document.getElementById('client-has-property').checked,
                         commission: parseFloat(document.getElementById('client-commission').value) || null,
@@ -5588,14 +5647,15 @@ if (action === 'edit') {
                     const propData = {
                         id: currentEditingId || Date.now(),
                         name: document.getElementById('prop-name').value,
+                        status: document.getElementById('prop-status').value, // <--- ADICIONE ESSA LINHA
                         location: document.getElementById('prop-location').value,
                         link: document.getElementById('prop-link').value,
-                        videoLink: getEmbedVideoUrl(videoLink), // Salva o link de embed
+                        videoLink: getEmbedVideoUrl(videoLink),
                         description: document.getElementById('prop-description').value,
-                        images: tempPropertyImages, // Usa as imagens temporárias
-                        mainImageIndex: tempMainImageIndex, // Usa o índice temporário
+                        images: tempPropertyImages,
+                        mainImageIndex: tempMainImageIndex,
                         amenities: selectedAmenities,
-                        variations: tempPropertyVariations // Usa as variações temporárias
+                        variations: tempPropertyVariations
                     };
                     
                     if (!propData.name) {
